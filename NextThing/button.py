@@ -69,6 +69,7 @@ while keep_going:
                 tt.cancel()
                 cancel_sound()
             time.sleep(1)
+        time.sleep(0.009)
     except KeyboardInterrupt:
         keep_going = False
 # Be nice...
