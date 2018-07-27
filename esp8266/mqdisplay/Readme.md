@@ -37,7 +37,28 @@ Some attempt made to autosize font for display.
 
 This will use the MQTT Auto Discovery feature in Home Assistant and add itself as a light component. From there you can also turn the display on/off and alter the brightness.
 
-I used the TFT_eSPI lib which is compatible with many TFT displays
+I used the TFT_eSPI lib which is compatible with many TFT displays.
+
+#### Sample HA Automation
+```yaml
+- id: '1532730381532'
+  alias: Refresh Weather Display
+  trigger:
+  - entity_id: sensor.dark_sky_temperature
+    platform: state
+  condition: []
+  action:
+  - data_template:
+      topic: 'mqdisplay/command'
+      payload: >
+        {"command": "message", "command_data": "DarkSky\n
+        Todays Temp\nCurrent: {{ states.sensor.dark_sky_temperature.state }}\n
+        High:   {{ states.sensor.dark_sky_daily_high_temperature.state }}\n
+        Low:    {{ states.sensor.dark_sky_daily_low_temperature.state }}"}
+    service: mqtt.publish
+```
+
+
 ##### Parts
 - NodeMCU
 - ILI9341
