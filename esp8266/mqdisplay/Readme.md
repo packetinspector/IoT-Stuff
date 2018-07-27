@@ -5,7 +5,7 @@ No need to alter the code for config, it is all done via browser.  Just flash, c
 
 After configuration, all the mqtt config info is displayed on screen.
 
-<img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_start.jpg" width="60%" height="60%">
+<img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_start.jpg" width="30%" height="30%">
 
 It has many functions and works with Home Assistant.
 
