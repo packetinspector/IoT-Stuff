@@ -4,6 +4,7 @@
 No need to alter the code for config, it is all done via browser.  Just flash, connect to AP and configure.
 
 After configuration, all the mqtt config info is displayed on screen.
+![coolpic](https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_start.jpg)
 
 It has many functions and works with Home Assistant.
 
