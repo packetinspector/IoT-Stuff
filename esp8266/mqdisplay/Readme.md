@@ -44,4 +44,5 @@ I used the TFT_eSPI lib which is compatible with many TFT displays
 
 ##### Other Notes
 - OTA is enabled
-- I added brightness by varying the voltage on D0, if you want to stick to eSPI just connect it to 3.3v
+- I added brightness by varying the voltage on D0 to pin LED on the screen, if you want to stick to eSPI just connect it to 3.3v
+- Edit PubSub.h -> MQTT_MAX_PACKET_SIZE 2048
