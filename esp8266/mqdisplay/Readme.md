@@ -9,10 +9,7 @@ After configuration, all the mqtt config info is displayed on screen.
 
 It has many functions and works with Home Assistant.
 
-<img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/ha_command.png" width="30%" height="30%"><img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/ha_light.png" width="30%" height="30%">
-
-<img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_mqtt.jpg" width="30%" height="30%">
-
+<img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/ha_command.png" width="30%" height="30%"><img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_mqtt.jpg" width="30%" height="30%"><img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/ha_light.png" width="30%" height="30%">
 You can control it via JSON.
 
 Example Payloads:
