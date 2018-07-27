@@ -43,4 +43,5 @@ I used the TFT_eSPI lib which is compatible with many TFT displays
 - ILI9341
 
 ##### Other Notes
-OTA is enabled
+- OTA is enabled
+- I added brightness by varying the voltage on D0, if you want to stick to eSPI just connect it to 3.3v
