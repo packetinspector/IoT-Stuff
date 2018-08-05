@@ -31,6 +31,10 @@ Example Payloads:
 {"command": "mqreconnect"}
 // Reset your device
 {"command": "reset"}
+// Draw text  ([x,y,text])
+{"command": "drawstring", "command_data": [50,150, "Test"]}
+// Fill Screen ([r,g,b])
+{"command": "fillscreen", "command_data": [200,0,200]}
 ```
 
 Some attempt made to autosize font for display.  

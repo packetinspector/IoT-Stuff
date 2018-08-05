@@ -22,6 +22,10 @@ e.g.
 {"command": "mqreconnect"}
 // Reset your device
 {"command": "reset"}
+// Draw text  ([x,y,text])
+{"command": "drawstring", "command_data": [50,150, "Test"]}
+// Fill Screen ([r,g,b])
+{"command": "fillscreen", "command_data": [200,0,200]}
 
 Home Assistant Integration!
 This will add itself to home assistant as a Light component.  You can then turn the display ON/OFF and adjust brightness
@@ -98,16 +102,15 @@ const char* willMessage = "offline" ;
 // char* willTopic;
 int currentBrightness = TFT_BRIGHTNESS;
 boolean displayLightOn = true; 
-boolean updatedMessage = false;
-boolean updatedisplay = false;
+boolean calledback = false;
+boolean commanded = false;
 String command = "";
-String command_data = "";
+JsonVariant command_data;
 String commandTopic = "NOTYET";
 String hastateTopic = "NOTYET";
 String hasetTopic = "NOTYET";
 String currentTopic = "";
-DynamicJsonBuffer  jsonBuffer; // allocate dynamic buffer for json work
-JsonObject& root = jsonBuffer.createObject(); // create object for json maniupulation
+
 
 // Functions
 void display_line(int x, int y, String s, uint16_t color = TFT_WHITE) {
@@ -139,10 +142,7 @@ void setup_wifi(){
     wifiManager.addParameter(&custom_mqtt_clientname);
     wifiManager.autoConnect(HOSTNAME);
     // Wifi Connected now, display results
-    WiFi.printDiag(Serial);
-    tft.fillScreen(TFT_BLACK);
-    display_line(10,10, "Network: " + WiFi.SSID());
-    display_line(10,20, "IP Address: " + WiFi.localIP().toString());
+    display_wifi();
     strcpy(mqtt_server, custom_mqtt_server.getValue());
     strcpy(mqtt_port, custom_mqtt_port.getValue());
     strcpy(mqtt_username, custom_mqtt_username.getValue());
@@ -170,6 +170,16 @@ void saveConfigCallback () {
     display_line(10, 60, "Success");
     delay(1000);
     shouldSaveConfig = true;
+}
+
+void display_wifi() {
+    WiFi.printDiag(Serial);
+    tft.setTextFont(1);
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.fillScreen(TFT_BLACK);
+    display_line(10,10, "Network: " + WiFi.SSID());
+    display_line(10,20, "IP Address: " + WiFi.localIP().toString());
 }
 
 void display_off() {
@@ -233,6 +243,7 @@ void load_config() {
 
     //read configuration from FS json
     Serial.println("mounting FS...");
+    DynamicJsonBuffer  jsonBuffer; // allocate dynamic buffer for json work
 
     if (SPIFFS.begin()) {
     Serial.println("mounted file system");
@@ -277,6 +288,7 @@ void load_config() {
 }
 void save_config(){
      if (SPIFFS.begin()) {
+        DynamicJsonBuffer  jsonBuffer; // allocate dynamic buffer for json work
         tft.fillScreen(TFT_BLACK);
         display_line(10,10, "Saving Config...");
         Serial.println("saving config");
@@ -318,12 +330,13 @@ void mqcallback(char* topic, byte* payload, unsigned int length) {
     // strcpy(strPayload, (char*)payload);
     Serial.println("Payload:");
     Serial.println(strPayload);
-    updatedMessage=true;
+    calledback=true;
 }
 
 void mqconnect() {
   // Loop until we're reconnected
   // String commandTopic = mqtt_clientname + "/message";
+  DynamicJsonBuffer  jsonBuffer; // allocate dynamic buffer for json work
 
   // Strings or chars....different methods
   commandTopic = String(mqtt_clientname) + "/command";
@@ -396,7 +409,9 @@ void parseMessages() {
     // parse the mq message
 
     // Make sure we don't call this again
-    updatedMessage = false; 
+    calledback = false;
+    DynamicJsonBuffer  jsonBuffer; // allocate dynamic buffer for json work
+    // JsonObject& root = jsonBuffer.createObject(); // create object for json maniupulation
     JsonObject& root = jsonBuffer.parseObject(strPayload);
     // Test if parsing succeeds.
     if (!root.success()) {   
@@ -409,9 +424,9 @@ void parseMessages() {
             command = root["command"].as<char*>();
         }
         if (root.containsKey("command_data")) {
-            command_data = root["command_data"].as<char*>();
+            command_data = root["command_data"];
         }
-        updatedisplay = true;
+        commanded = true;
         // Let the display function deal with it
         return;
     }
@@ -438,6 +453,7 @@ void parseMessages() {
 String haState() {
     //Return json for state of display
     String state;
+    DynamicJsonBuffer  jsonBuffer; // allocate dynamic buffer for json work
     JsonObject& json = jsonBuffer.createObject();
     json["state"] = displayLightOn ? "ON" : "OFF";
     json["brightness"] = currentBrightness; 
@@ -453,26 +469,42 @@ void runCommands(){
     // Do stuff based on the message
 
     // Make sure we don't call this again
-    updatedisplay = false;
+    commanded = false;
     Serial.println("Command: " + command);
-    Serial.println("Data: " + command_data);
+    Serial.print("Data: " + command_data.as<String>());
     // Basic Case...
     if (command == "brightness") {
         // tft.setBacklightBrightness(command_data.toInt());
-        display_brightness(command_data.toInt());
+        display_brightness(command_data);
     }
     if (command == "message") {
        drawtext(command_data);
     }
     if (command == "rotate") {
-       display_rotate(command_data.toInt());
+       display_rotate(command_data);
     }
     if (command == "reset") {
       ESP.reset();
     }
+    if (command == "showwifi") {
+        display_wifi();
+    }
     if (command == "mqreconnect") {
         client.disconnect();
         mqconnect();
+    }
+    if (command == "drawcircle") {
+        fillSegment(command_data[0], command_data[1], command_data[2], command_data[3], command_data[4], TFT_BLUE);
+    }
+    if (command == "fillscreen") {
+        uint32_t  screenColor = tft.color565(command_data[0], command_data[1], command_data[2]);
+        tft.fillScreen(screenColor);
+    }
+    if (command == "blankscreen") {
+        tft.fillScreen(TFT_BLACK);
+    }
+    if (command == "drawstring") {
+        tft.drawString(command_data[2].as<String>(), command_data[0], command_data[1]);
     }
 }
 
@@ -484,7 +516,7 @@ void drawtext(String message){
     // tft.setFont(Terminal12x16);
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setCursor(0,0);
+    tft.setCursor(10,10);
     // int text_length = command_data.length();
     // Serial.print("Writing ");
     // Serial.print(text_length);
@@ -498,15 +530,16 @@ void drawtext(String message){
     // }
 
     // This can be better...
-    if (message.length() < 160) {
-      tft.setTextSize(3);
-    } else if (message.length() < 400) {
-      tft.setTextSize(2);
-    } else {
-      tft.setTextSize(1);
-    }
+    // if (message.length() < 160) {
+    //   tft.setTextSize(3);
+    // } else if (message.length() < 400) {
+    //   tft.setTextSize(2);
+    // } else {
+    //   tft.setTextSize(1);
+    // }
     // tft.setTextSize(3);
-    tft.setTextFont(1);
+    tft.setTextSize(1);
+    tft.setFreeFont(&FreeMono9pt7b);
     tft.print(message);
 }
 
@@ -522,6 +555,30 @@ void drawtext(String message){
 
 //   tft.setTextPadding(0);
 // }
+
+void fillSegment(int x, int y, int start_angle, int sub_angle, int r, unsigned int colour)
+{
+  #define DEG2RAD 0.0174532925
+  // Calculate first pair of coordinates for segment start
+  float sx = cos((start_angle - 90) * DEG2RAD);
+  float sy = sin((start_angle - 90) * DEG2RAD);
+  uint16_t x1 = sx * r + x;
+  uint16_t y1 = sy * r + y;
+
+  // Draw colour blocks every inc degrees
+  for (int i = start_angle; i < start_angle + sub_angle; i++) {
+
+    // Calculate pair of coordinates for segment end
+    int x2 = cos((i + 1 - 90) * DEG2RAD) * r + x;
+    int y2 = sin((i + 1 - 90) * DEG2RAD) * r + y;
+
+    tft.fillTriangle(x1, y1, x2, y2, x, y, colour);
+
+    // Copy segment end to sgement start for next segment
+    x1 = x2;
+    y1 = y2;
+  }
+}
 
 void start_ota(){
     ArduinoOTA.setHostname(mqtt_clientname);
@@ -578,6 +635,6 @@ void loop() {
     // Keep MQTT Going
     if (!client.connected()) {mqconnect();}
     client.loop();
-    if (updatedMessage) {parseMessages();}
-    if (updatedisplay) {runCommands();} 
+    if (calledback) {parseMessages();}
+    if (commanded) {runCommands();} 
 }
