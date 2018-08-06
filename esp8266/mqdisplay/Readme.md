@@ -7,7 +7,7 @@ After configuration, all the mqtt config info is displayed on screen.
 
 <img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_start.jpg" width="30%" height="30%">
 
-It has many functions and works with Home Assistant.
+It has many functions and works with Home Assistant.  Now with image display and download!
 
 <img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/ha_command.png" width="35%" height="35%" align="top"><img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/display_mqtt.jpg" width="30%" height="30%"><img src="https://raw.githubusercontent.com/packetinspector/IoT-Stuff/master/esp8266/mqdisplay/images/ha_light.png" width="35%" height="35%" align="top">
 
@@ -27,7 +27,7 @@ Example Payloads:
 {"command": "message", "command_data": "High: {{ states.sensor.dark_sky_daily_high_temperature.state}} \nLow:  {{ states.sensor.dark_sky_daily_low_temperature.state}} \n"}
 // Will use new line chars to break
 {"command": "message", "command_data": "DarkSky\nTodays Temp\nCurrent: {{ states.sensor.dark_sky_temperature.state }}\nHigh:    {{ states.sensor.dark_sky_daily_high_temperature.state}}\nLow:     {{ states.sensor.dark_sky_daily_low_temperature.state}}"}
-// Reconnect to mqtt - You could use this "rediscover" the light component
+// Reconnect to mqtt - Not sure this will ever be needed as you need to be connected...yeah....
 {"command": "mqreconnect"}
 // Reset your device
 {"command": "reset"}
@@ -35,6 +35,16 @@ Example Payloads:
 {"command": "drawstring", "command_data": [50,150, "Test"]}
 // Fill Screen ([r,g,b])
 {"command": "fillscreen", "command_data": [200,0,200]}
+// Download file to SPIFFS
+{"command": "downloadfile", "command_data": ["http://www.squix.org/blog/wunderground/mini/sunny.bmp", "/sunny.bmp"]}
+// Draw a progress bar
+{"command": "drawprogress", "command_data": [75,"Work Done"]}
+// Draw a pie chart
+{"command": "drawpie", "command_data": [30,30,15,250,20]}
+// Delete file from SPIFF
+{"command": "deletefile", "command_data": "/sunny.bmp"}
+// Show file from SPIFF
+{"command": "showfile", "command_data": "/sunny.bmp"}
 ```
 
 Some attempt made to autosize font for display.  

@@ -26,6 +26,16 @@ e.g.
 {"command": "drawstring", "command_data": [50,150, "Test"]}
 // Fill Screen ([r,g,b])
 {"command": "fillscreen", "command_data": [200,0,200]}
+// Download file to SPIFFS
+{"command": "downloadfile", "command_data": ["http://www.squix.org/blog/wunderground/mini/sunny.bmp", "/sunny.bmp"]}
+// Draw a progress bar
+{"command": "drawprogress", "command_data": [75,"Work Done"]}
+// Draw a pie chart
+{"command": "drawpie", "command_data": [30,30,15,250,20]}
+// Delete file from SPIFF
+{"command": "deletefile", "command_data": "/sunny.bmp"}
+// Show file from SPIFF
+{"command": "showfile", "command_data": "/sunny.bmp"}
 
 Home Assistant Integration!
 This will add itself to home assistant as a Light component.  You can then turn the display ON/OFF and adjust brightness
@@ -34,14 +44,15 @@ ToDo:
 
 Add flash effect, fill panel with color off/on
 Text color support
-Widgets: display image from SPIFFS
-Image Downloader: Push URL to download image
+xxxxDone Widgets: display image from SPIFFS
+xxxxDone Image Downloader: Push URL to download image
 //
 Use Integrated touch to make "buttons"
 */
 
 // Include application, user and local libraries
-#include <FS.h> 
+// #define FS_NO_GLOBALS // Avoid conflict with SD library File type definition
+// #include <FS.h> 
 #include "SPI.h"
 #include <ArduinoJson.h>
 
@@ -49,14 +60,16 @@ Use Integrated touch to make "buttons"
 // #include "TFT_22_ILI9225.h"
 #include <TFT_eSPI.h>      // Hardware-specific library
 // Additional UI functions
-// #include "GfxUi.h"
+#include "GfxUi.h"
+// Download helper
+#include "WebResource.h"
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
 #include <WiFiManager.h>
 // This override may or may not work, if not edit PubSub
-#define MQTT_MAX_PACKET_SIZE 2048
+#define MQTT_MAX_PACKET_SIZE 4096
 #include <PubSubClient.h>
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -77,7 +90,7 @@ PubSubClient client(espClient);
 #define TFT_MAX_CHARS 1500
 
 TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
-// GfxUi ui = GfxUi(&tft);
+GfxUi ui = GfxUi(&tft);
 
 // Use hardware SPI (faster - on Uno: 13-SCK, 12-MISO, 11-MOSI)
 // TFT_22_ILI9225 tft = TFT_22_ILI9225(TFT_RST, TFT_RS, TFT_CS, TFT_LED, TFT_BRIGHTNESS);
@@ -86,7 +99,7 @@ TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
 // End Display Setup
 
 #define HOSTNAME "MQTT-DISPLAY"
-//Vars for config
+// Vars for config
 char mqtt_server[40];
 char mqtt_port[6] = "1883";
 char mqtt_username[40];
@@ -97,6 +110,7 @@ bool shouldSaveConfig = false;
 char* strPayload;
 boolean willRetain = true;
 const char* willMessage = "offline" ;
+
 // Global Vars
 // char* commandTopic;  // command topic for messages 
 // char* willTopic;
@@ -111,6 +125,9 @@ String hastateTopic = "NOTYET";
 String hasetTopic = "NOTYET";
 String currentTopic = "";
 
+//
+void downloadCallback(String filename, int16_t bytesDownloaded, int16_t bytesTotal);
+ProgressCallback _downloadCallback = downloadCallback;
 
 // Functions
 void display_line(int x, int y, String s, uint16_t color = TFT_WHITE) {
@@ -119,6 +136,7 @@ void display_line(int x, int y, String s, uint16_t color = TFT_WHITE) {
     tft.setTextColor(color);
     tft.drawString(s,x,y);
 }
+
 
 void setup_wifi(){
     // Set Hostname
@@ -250,7 +268,7 @@ void load_config() {
     if (SPIFFS.exists("/config.json")) {
       //file exists, reading and loading
       Serial.println("reading config file");
-      File configFile = SPIFFS.open("/config.json", "r");
+      fs::File configFile = SPIFFS.open("/config.json", "r");
       if (configFile) {
         Serial.println("opened config file");
         size_t size = configFile.size();
@@ -299,7 +317,7 @@ void save_config(){
         json["mqtt_username"] = mqtt_username;
         json["mqtt_password"] = mqtt_password;
         json["mqtt_clientname"] = mqtt_clientname;
-        File configFile = SPIFFS.open("/config.json", "w");
+        fs::File configFile = SPIFFS.open("/config.json", "w");
         if (!configFile) {
             Serial.println("failed to open config file for writing");
             display_line(10,20, "Failed to save config!");
@@ -471,40 +489,71 @@ void runCommands(){
     // Make sure we don't call this again
     commanded = false;
     Serial.println("Command: " + command);
-    Serial.print("Data: " + command_data.as<String>());
+    // Serial.print("Data: " + command_data.as<String>());
     // Basic Case...
     if (command == "brightness") {
         // tft.setBacklightBrightness(command_data.toInt());
         display_brightness(command_data);
+        return;
     }
     if (command == "message") {
        drawtext(command_data);
+       return;
     }
     if (command == "rotate") {
        display_rotate(command_data);
+       return;
     }
     if (command == "reset") {
-      ESP.reset();
+        ESP.reset();
+        return;
     }
     if (command == "showwifi") {
         display_wifi();
+        return;
     }
     if (command == "mqreconnect") {
         client.disconnect();
         mqconnect();
+        return;
     }
-    if (command == "drawcircle") {
+    if (command == "drawpie") {
         fillSegment(command_data[0], command_data[1], command_data[2], command_data[3], command_data[4], TFT_BLUE);
+        return;
     }
     if (command == "fillscreen") {
         uint32_t  screenColor = tft.color565(command_data[0], command_data[1], command_data[2]);
         tft.fillScreen(screenColor);
+        return;
     }
     if (command == "blankscreen") {
         tft.fillScreen(TFT_BLACK);
+        return;
     }
     if (command == "drawstring") {
         tft.drawString(command_data[2].as<String>(), command_data[0], command_data[1]);
+        return;
+    }
+    if (command == "drawprogress") {
+      drawProgress(command_data[0], command_data[1].as<String>());
+      return;
+    }
+    if (command == "downloadfile") {
+      tft.fillScreen(TFT_BLACK);
+      getFile(command_data[0], command_data[1]);
+      return;
+    }
+    if (command == "showfile") {
+      showFile(command_data);
+      return;
+    }
+    if (command == "deletefile") {
+      if (command_data == "/config.json") {
+        drawtext("Not Deleting Config");
+        return;
+      }
+      deleteFile(command_data);
+      return;
     }
 }
 
@@ -515,6 +564,7 @@ void drawtext(String message){
 
     // tft.setFont(Terminal12x16);
     tft.fillScreen(TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setCursor(10,10);
     // int text_length = command_data.length();
@@ -543,18 +593,69 @@ void drawtext(String message){
     tft.print(message);
 }
 
-// void drawProgress(uint8_t percentage, String text) {
-//   // tft.setFreeFont(&ArialRoundedMTBold_14);
+void drawProgress(uint8_t percentage, String text) {
+  // tft.setFreeFont(&ArialRoundedMTBold_14);
 
-//   tft.setTextDatum(BC_DATUM);
-//   tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-//   tft.setTextPadding(240);
-//   tft.drawString(text, 120, 220);
+  tft.setTextDatum(BC_DATUM);
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.setTextPadding(240);
+  tft.drawString(text, 120, 220);
 
-//   ui.drawProgressBar(10, 225, 240 - 20, 15, percentage, TFT_WHITE, TFT_BLUE);
+  ui.drawProgressBar(10, 225, 240 - 20, 15, percentage, TFT_WHITE, TFT_BLUE);
 
-//   tft.setTextPadding(0);
-// }
+  // tft.setTextPadding(0);
+}
+
+// callback called during download of files. Updates progress bar
+void downloadCallback(String filename, int16_t bytesDownloaded, int16_t bytesTotal) {
+  Serial.println(String(bytesDownloaded) + " / " + String(bytesTotal));
+
+  tft.setTextDatum(BC_DATUM);
+  tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+  tft.setTextPadding(240);
+
+  int percentage = 100 * bytesDownloaded / bytesTotal;
+  if (percentage == 0) {
+    tft.drawString(filename, 120, 220);
+  }
+  if (percentage % 5 == 0) {
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextPadding(tft.textWidth(" 888% "));
+    tft.drawString(String(percentage) + "%", 120, 245);
+    ui.drawProgressBar(10, 225, 240 - 20, 15, percentage, TFT_WHITE, TFT_BLUE);
+  }
+
+}
+
+void getFile(String url, String filename) {
+  // Download the file and then show it
+  WebResource webResource;
+  webResource.downloadFile(url, filename, _downloadCallback);
+  // Check download
+  if (SPIFFS.begin()) {
+    if (SPIFFS.exists(filename)) {
+      showFile(filename);
+    } else {
+      drawtext("Download Failed");
+    }
+  } else {
+    drawtext("SPIFF Fail");
+  }
+}
+
+void showFile(String filename) {
+  //Look at filename and decide how to show it
+  // ui.drawJpeg(filename.c_str(), 0, 10);
+  ui.drawBmp(filename.c_str(), 0, 10);
+}
+
+void deleteFile(String filename) {
+  if (SPIFFS.remove(filename)) {
+    drawtext(filename + " Deleted");
+  } else {
+    drawtext(filename + " \n Failed to Delete!");
+  }
+}
 
 void fillSegment(int x, int y, int start_angle, int sub_angle, int r, unsigned int colour)
 {
@@ -579,6 +680,11 @@ void fillSegment(int x, int y, int start_angle, int sub_angle, int r, unsigned i
     y1 = y2;
   }
 }
+
+ // tft.drawRect(oldball_x, oldball_y, ball_w, ball_h, BLACK); // Less TFT refresh aliasing than line above for large balls
+ //  tft.fillRect(   ball_x,    ball_y, ball_w, ball_h, WHITE);
+   // tft.drawLine(dx, dy + 5, dx + pw, dy, TFT_WHITE);
+    // tft.fillCircle(120, 120, 118, TFT_GREEN);
 
 void start_ota(){
     ArduinoOTA.setHostname(mqtt_clientname);
