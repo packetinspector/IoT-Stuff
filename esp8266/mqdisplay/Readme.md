@@ -39,12 +39,13 @@ Example Payloads:
 {"command": "downloadfile", "command_data": ["http://www.squix.org/blog/wunderground/mini/sunny.bmp", "/sunny.bmp"]}
 // Draw a progress bar
 {"command": "drawprogress", "command_data": [75,"Work Done"]}
+{"command": "drawprogress", "command_data": [  {{ states.sensor.ht_watching.state }},"{{ states.media_player.htpc.attributes.media_series_title }}"]}
 // Draw a pie chart
 {"command": "drawpie", "command_data": [30,30,15,250,20]}
 // Delete file from SPIFF
 {"command": "deletefile", "command_data": "/sunny.bmp"}
 // Show file from SPIFF
-{"command": "showfile", "command_data": "/sunny.bmp"}
+{"command": "showfile", "command_data": ["/sunny.bmp", 50, 50]}
 ```
 
 Some attempt made to autosize font for display.  

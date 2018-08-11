@@ -30,12 +30,13 @@ e.g.
 {"command": "downloadfile", "command_data": ["http://www.squix.org/blog/wunderground/mini/sunny.bmp", "/sunny.bmp"]}
 // Draw a progress bar
 {"command": "drawprogress", "command_data": [75,"Work Done"]}
+{"command": "drawprogress", "command_data": [  {{ states.sensor.ht_watching.state }},"{{ states.media_player.htpc.attributes.media_series_title }}"]}
 // Draw a pie chart
 {"command": "drawpie", "command_data": [30,30,15,250,20]}
 // Delete file from SPIFF
 {"command": "deletefile", "command_data": "/sunny.bmp"}
 // Show file from SPIFF
-{"command": "showfile", "command_data": "/sunny.bmp"}
+{"command": "showfile", "command_data": ["/sunny.bmp", 50, 50]}
 
 Home Assistant Integration!
 This will add itself to home assistant as a Light component.  You can then turn the display ON/OFF and adjust brightness
@@ -544,7 +545,7 @@ void runCommands(){
       return;
     }
     if (command == "showfile") {
-      showFile(command_data);
+      showFile(command_data[0],command_data[1],command_data[2]);
       return;
     }
     if (command == "deletefile") {
@@ -599,9 +600,8 @@ void drawProgress(uint8_t percentage, String text) {
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(TFT_ORANGE, TFT_BLACK);
   tft.setTextPadding(240);
-  tft.drawString(text, 120, 220);
-
-  ui.drawProgressBar(10, 225, 240 - 20, 15, percentage, TFT_WHITE, TFT_BLUE);
+  tft.drawString(text, 120, 280);
+  ui.drawProgressBar(10, 290, 240 - 20, 15, percentage, TFT_WHITE, TFT_BLUE);
 
   // tft.setTextPadding(0);
 }
@@ -634,7 +634,7 @@ void getFile(String url, String filename) {
   // Check download
   if (SPIFFS.begin()) {
     if (SPIFFS.exists(filename)) {
-      showFile(filename);
+      showFile(filename, 0, 10);
     } else {
       drawtext("Download Failed");
     }
@@ -643,10 +643,17 @@ void getFile(String url, String filename) {
   }
 }
 
-void showFile(String filename) {
+void showFile(String filename, int x, int y) {
   //Look at filename and decide how to show it
   // ui.drawJpeg(filename.c_str(), 0, 10);
-  ui.drawBmp(filename.c_str(), 0, 10);
+  if (filename.indexOf(".bmp")) {
+    ui.drawBmp(filename.c_str(), x, y);
+    return;
+  }
+  if (filename.indexOf(".jpg") || filename.indexOf(".jpeg")) {
+    ui.drawJpeg(filename.c_str(), x, y);
+    return;
+  }
 }
 
 void deleteFile(String filename) {
